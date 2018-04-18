@@ -550,7 +550,6 @@ class WorldMapViewer():
         phi = cameraobj.phi
         c = glGenLists(1)
         glNewList(c, GL_COMPILE)
-        print(c)
         glPushMatrix()
         glTranslatef(*pos)
         # Transpose the matrix for sending to OpenCV
@@ -845,17 +844,11 @@ class WorldMapViewer():
     def window_creator(self):
         global WINDOW
         WINDOW = opengl.create_window(bytes(self.windowName,'utf-8'), (self.width,self.height))        
-        print("WINDOW")
         glutDisplayFunc(self.display)
-        print("DISPLAY")
         glutReshapeFunc(self.reshape)
-        print("RESHAPE")
         glutKeyboardFunc(self.keyPressed)
-        print("KEYPRESSED")
         glutSpecialFunc(self.specialKeyPressed)
-        print("SPECIALKEY")
         glViewport(0,0,self.width,self.height)
-        print("PORT")
         glClearColor(*self.bgcolor, 0)
         glEnable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)

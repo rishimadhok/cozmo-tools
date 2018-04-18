@@ -29,7 +29,7 @@ def init():
     global INIT_DONE
     if not INIT_DONE:
         INIT_DONE = True
-        glutInit(b'window') #for some reason this doesn't work on my laptop without the bytestring
+        glutInit([bytes('windowName','utf-8')]) #for some reason this doesn't work on my laptop without the bytestring
         glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH)
 
         # Killing window should not directly kill main program
