@@ -4,7 +4,7 @@ import threading
 from numpy import matrix, array, ndarray, sqrt, arctan2, pi
 from time import sleep
 
-from transform import wrap_angle, rotationMatrixToEulerAngles
+from .transform import wrap_angle, rotationMatrixToEulerAngles
 
 # Microsoft HD ( Calibrated to death )
 microsoft_HD_webcam_cameraMatrix = matrix([[1148.00,       -3,    641.0],
@@ -26,12 +26,12 @@ class Cam():
                (self.x, self.y, self.z,self.phi*180/pi)
 
 class PerchedCameraThread(threading.Thread):
-    def __init__(self, verbose = True):
+    def __init__(self, verbose = True, viewer=True):
         threading.Thread.__init__(self)
         self.use_perched_cameras = False
         self.perched_cameras = []
         self.verbose = verbose
-
+        self.viewer = viewer
         # Set camera parameters. (Current code assumes same parameters for all cameras connected to a computer.)
         self.cameraMatrix = microsoft_HD_webcam_cameraMatrix
         self.distCoeffs = microsoft_HD_webcam_distCoeffs
@@ -56,7 +56,13 @@ class PerchedCameraThread(threading.Thread):
     def start_perched_camera_thread(self,cameras=[]):
         if not isinstance(cameras,list):
             cameras = [cameras]
-
+        if self.viewer:
+            """
+            for x in range(len(cameras)):
+                cv2.namedWindow('camera-'+str(x), cv2.WINDOW_NORMAL)
+                cv2.startWindowThread()
+                cv2.imshow('camera-'+str(x),array([[0]]))
+            """
         self.use_perched_cameras=True
         self.perched_cameras = []
         for x in cameras:
@@ -84,11 +90,21 @@ class PerchedCameraThread(threading.Thread):
     def process_image(self):
         # Dict with key: aruco id with values as cameras that can see the marker
         self.temp_cams = {}     # Necessary, else self.cameras is empty most of the time
+        count = 0
         for cap in self.perched_cameras:
             # Clearing Buffer by grabbing five frames
             for i in range(5):
                 cap.grab()
             ret, frame = cap.read()
+            '''
+            print("read frame")
+            try:
+                cv2.waitKey(1)
+                cv2.imshow("camera-"+str(count),frame)
+            except Exception as e: print(repr(e))
+            count += 1
+            print("showed frame")
+            '''
             gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.parameters)
 

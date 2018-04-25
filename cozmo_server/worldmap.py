@@ -2,9 +2,9 @@ from math import pi, inf, sin, cos, tan, atan2, sqrt
 from cozmo.faces import Face
 from cozmo.objects import LightCube, CustomObject, EvtObjectMovingStopped
 
-import transform
+from . import transform
 #from . import custom_objs
-from transform import wrap_angle
+from .transform import wrap_angle
 
 class WorldObject():
     def __init__(self, id=None, x=0, y=0, z=0, is_visible=None):
@@ -494,7 +494,7 @@ class WorldMap():
         wmobject.theta = wrap_angle(sdk_obj.pose.rotation.angle_z.radians + orient_diff)
 
     def update_perched_cameras(self, pool=None):
-        if pool != None and self.origin_id != None:
+        if pool != None and self.origin_id != None: #Finds the coordinates of cameras w.r.t origin aruco marker
             for key, val in pool.get(self.origin_id, {}).items():
                 if isinstance(key,str) and 'Video' in key:
                     if key in self.objects:

@@ -14,10 +14,10 @@ try:
 except:
     pass
 
-import opengl
-import transform
-import worldmap
-
+from . import opengl
+from . import worldmap
+from .worldmap import *
+from . import transform
 import cozmo
 from cozmo.nav_memory_map import NodeContentTypes
 
@@ -844,7 +844,7 @@ class WorldMapViewer():
     def window_creator(self):
         global WINDOW
         WINDOW = opengl.create_window(bytes(self.windowName,'utf-8'), (self.width,self.height))        
-        glutDisplayFunc(self.display)
+        #glutDisplayFunc(self.display)
         glutReshapeFunc(self.reshape)
         glutKeyboardFunc(self.keyPressed)
         glutSpecialFunc(self.specialKeyPressed)
