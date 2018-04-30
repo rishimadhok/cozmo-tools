@@ -100,6 +100,8 @@ class FusionThread(threading.Thread):
     def run(self):
         while(True):
             # adding local camera landmarks into camera_landmark_pool
+            for aruco_id, rm in self.server.perched_thread.rotation_matrices:
+                print(rm)
             self.robot.world.server.camera_landmark_pool[self.aruco_id].update( \
                 {k:self.robot.world.particle_filter.sensor_model.landmarks[k] for k in \
                 [x for x in self.robot.world.particle_filter.sensor_model.landmarks.keys()\

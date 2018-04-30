@@ -1,6 +1,7 @@
 import cv2
 from cv2 import aruco
 import threading
+import collections
 from numpy import matrix, array, ndarray, sqrt, arctan2, pi
 from time import sleep
 
@@ -32,6 +33,7 @@ class PerchedCameraThread(threading.Thread):
         self.perched_cameras = []
         self.verbose = verbose
         self.viewer = viewer
+
         # Set camera parameters. (Current code assumes same parameters for all cameras connected to a computer.)
         self.cameraMatrix = microsoft_HD_webcam_cameraMatrix
         self.distCoeffs = microsoft_HD_webcam_distCoeffs
@@ -43,6 +45,8 @@ class PerchedCameraThread(threading.Thread):
 
         # camera landamrks from network (sent from server)
         self.global_cameras = {}
+
+        self.rotation_matrices = {}
 
     def run(self):
         while(True):
@@ -56,13 +60,6 @@ class PerchedCameraThread(threading.Thread):
     def start_perched_camera_thread(self,cameras=[]):
         if not isinstance(cameras,list):
             cameras = [cameras]
-        if self.viewer:
-            """
-            for x in range(len(cameras)):
-                cv2.namedWindow('camera-'+str(x), cv2.WINDOW_NORMAL)
-                cv2.startWindowThread()
-                cv2.imshow('camera-'+str(x),array([[0]]))
-            """
         self.use_perched_cameras=True
         self.perched_cameras = []
         for x in cameras:
@@ -96,15 +93,6 @@ class PerchedCameraThread(threading.Thread):
             for i in range(5):
                 cap.grab()
             ret, frame = cap.read()
-            '''
-            print("read frame")
-            try:
-                cv2.waitKey(1)
-                cv2.imshow("camera-"+str(count),frame)
-            except Exception as e: print(repr(e))
-            count += 1
-            print("showed frame")
-            '''
             gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, self.aruco_dict, parameters=self.parameters)
 
@@ -125,5 +113,17 @@ class PerchedCameraThread(threading.Thread):
                     else:
                         self.temp_cams[ids[i][0]]={str(cap):Cam(str(cap),transformed[0][0,0],
                             transformed[1][0,0],transformed[2][0,0],wrap_angle(phi[2]-pi/2), wrap_angle(phi[0]+pi/2))}
-        self.local_cameras = self.temp_cams
+                    if ids[i][0] in self.rotation_matrices:
+                        self.rotation_matrices[ids[i][0]][str(cap)] = matrix(rotationm).T
+                    else:
+                         self.rotation_matrices[ids[i][0]]={str(cap): matrix(rotationm).T}
+        def deep_update(d, u):
+            for k, v in u.items():
+                if isinstance(v, collections.Mapping):
+                    d[k] = deep_update(d.get(k, {}), v)
+                else:
+                    d[k] = v
+            return d
+
+        deep_update(self.local_cameras,self.temp_cams)
         if(self.verbose): print(self.local_cameras)
