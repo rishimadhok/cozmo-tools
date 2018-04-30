@@ -590,7 +590,10 @@ class WorldMapViewer():
         # Draw the head
         glPushMatrix()
         glTranslatef(*robot_head_offset_mm)
-        glRotatef(-self.robot.head_angle.degrees, 0, 1, 0)
+        if(self.robot):
+            glRotatef(-self.robot.head_angle.degrees, 0, 1, 0)
+        else:
+            glRotatef(0,0,1,0)
         self.make_cube(robot_head_size_mm, color=color_white)
         glTranslatef(*( 0,  0,   36))
         glScalef(0.25, 0.2, 0.25)
@@ -600,8 +603,14 @@ class WorldMapViewer():
         # Draw the lift
         glTranslatef(-robot_body_offset_mm[0], -robot_body_offset_mm[1], -robot_body_offset_mm[2])
         glPushMatrix()
-        self.robot.kine.get_pose()
-        lift_tran = self.robot.kine.joint_to_base('lift_attach')
+        if self.robot:
+            self.robot.kine.get_pose()
+            lift_tran = self.robot.kine.joint_to_base('lift_attach')
+        else:
+            lift_tran = np.matrix([[0.9821, 0.1880, 0, 25.8823],
+                                   [0, 0, 0, 0],
+                                   [-0.1880, 0.9821, 0, 8.588],
+                                   [0,0,0,1]])
         lift_pt = transform.point(0, 0, 0)
         lift_point = self.tran_to_tuple(lift_tran.dot(lift_pt))
         glTranslatef(*lift_point)
@@ -611,7 +620,13 @@ class WorldMapViewer():
         glPushMatrix()
         lift_pt = transform.point(0, 0, lift_arm_spacing_mm / 2)
         lift_point = self.tran_to_tuple(lift_tran.dot(lift_pt))
-        shoulder_tran = self.robot.kine.joint_to_base('shoulder')
+        if self.robot:
+            shoulder_tran = self.robot.kine.joint_to_base('shoulder')
+        else:
+            shoulder_tran = np.matrix([[1,0,0,-3.9],
+                                       [0,0,0,0],
+                                       [0,1,0,21],
+                                       [0,0,0,1]])
         shoulder_pt = transform.point(0, 0, lift_arm_spacing_mm / 2)
         shoulder_point = self.tran_to_tuple(shoulder_tran.dot(shoulder_pt));
 
@@ -844,7 +859,7 @@ class WorldMapViewer():
     def window_creator(self):
         global WINDOW
         WINDOW = opengl.create_window(bytes(self.windowName,'utf-8'), (self.width,self.height))        
-        glutDisplayFunc(self.display)
+        #glutDisplayFunc(self.display)
         glutReshapeFunc(self.reshape)
         glutKeyboardFunc(self.keyPressed)
         glutSpecialFunc(self.specialKeyPressed)

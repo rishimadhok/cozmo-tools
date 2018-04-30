@@ -1,6 +1,9 @@
 import numpy as np
 from numpy import matrix, array, ndarray, sqrt, arctan2, pi
 
+def point(x=0,y=0,z=0):
+    return np.array([ [x], [y], [z], [1.] ])
+
 def wrap_angle(angle_rads):
     """Keep angle between -pi and pi."""
     if angle_rads <= -pi:
