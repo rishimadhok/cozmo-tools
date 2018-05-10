@@ -35,3 +35,4 @@ The fusion process also gets the landmarks from individual robots (lightcubes an
 ## Notes
 * Having more than one camera adds to constant visibility but does not increase stability due to the lack of a functioning particle filter.
 * Due to the placement of aruco markers on the robots (off angle and center) the perceived robot coordinates are often different than the real ones.
+* Since lift and head pose are not passed to server, shared worldmaps show the local robot pose (default on server) rather than the actual head and lift positions.
