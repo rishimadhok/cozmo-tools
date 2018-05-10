@@ -23,6 +23,16 @@ class WorldObject():
         else:
             self.pose_confidence = -1
 
+class ServerMessage(WorldObject):
+    def __init__(self, cozmo_id=-1, message=''):
+        id = 'Message-From-%d' % cozmo_id
+        self.msg = message
+        self.cozmo_id = cozmo_id
+        super().__init__(id,0,0)
+
+    def __repr__(self):
+        return '<MessageObj from Cozmo %d>' % (self.cozmo_id)
+
 class LightCubeObj(WorldObject):
     light_cube_size = (44., 44., 44.)
     def __init__(self, sdk_obj, id=None, x=0, y=0, z=0, theta=0):

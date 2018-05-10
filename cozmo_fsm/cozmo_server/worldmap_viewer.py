@@ -843,8 +843,8 @@ class WorldMapViewer():
     def make_shapes(self):
         global gl_lists
         gl_lists = []
+        self.make_axes()
         if self.robot:
-            self.make_axes()
             self.make_gazepoint()
             self.make_charger()
             self.make_cozmo_robot()

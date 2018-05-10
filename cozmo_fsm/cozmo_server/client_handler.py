@@ -46,7 +46,16 @@ class fakeParticleFilter():
 
 
 
+''' class Server: Server class that initializes and starts all necessary threads for a server
+
+'''
 class Server():
+    ''' constructor:
+        worldmap: worldmap object to share with clients
+        port: port to listen for connections on
+        perched_thread: PerchedThread object to get camera information from
+        aruco_offset: angle at which origin aruco marker is positioned (w.r.t world AND aruco markers on robots)
+    '''
     def __init__(self, worldmap, port=1800, perched_thread=None, aruco_offset=0):
         #Worldmap (must have origin_id set)
         self.world_map = worldmap
@@ -54,7 +63,8 @@ class Server():
         #Rotation of the origin aruco marker (0 by default)
         self.aruco_offset_angle = aruco_offset
 
-
+        self.debug = True
+        self.log = True
         self.camera_landmark_pool = {}
         self.poses = {}
         self.foreign_objects = {}
@@ -65,6 +75,7 @@ class Server():
         self.particle = fakeParticleFilter()
         self.fusion = FusionThread(self)
         self.fusion.start()
+
 class FusionThread(Thread):
     def __init__(self, server):
         super().__init__()
@@ -87,7 +98,7 @@ class FusionThread(Thread):
                 for camera, landmark in camera_pool1.items(): #how each camera sees aruco_id1
                     if camera in camera_pool2: #if the same camera sees aruco_id2
                         varsum = landmark[2].sum()+camera_pool2[camera][2].sum() #total error
-                        if varsum < self.accurate.get((aruco_id1,aruco_id2),(inf,None))[0]: #if error improves with this camera
+                        if varsum <= self.accurate.get((aruco_id1,aruco_id2),(inf,None))[0]: #if error improves with this camera
                             self.accurate[(aruco_id1,aruco_id2)] = (varsum,camera) #update camera, error/accuracy
                             flag = True
         return flag
@@ -156,8 +167,10 @@ class FusionThread(Thread):
 
                             self.server.camera_landmark_pool[aruco_id] = {camera: (lm_mu, lm_height, lm_sigma)}
 
-                        except Exception as e: pass
-            except Exception as e: pass
+                        except Exception as e: 
+                            if(self.server.log): print(repr(e))
+            except Exception as e: 
+                if(self.server.debug): print(repr(e))
             try:
                 if self.find_accurate(): self.find_transforms()
             except Exception as e: print(repr(e))
@@ -167,6 +180,9 @@ class FusionThread(Thread):
             except Exception as e: print(repr(e))
             sleep(0.02)
 
+    ''' function update_foreign_objects: updates the pose of each foreign object -as reported by clients- w.r.t clients
+        and ultimately w.r.t world frame, using robot pose relative to origin and object pose relative to robot.
+    '''
     def update_foreign_objects(self):
         for key, value in self.transforms.items(): 
             try:
@@ -201,6 +217,9 @@ class FusionThread(Thread):
                                 self.server.world_map.objects[k]=copy_obj
             except Exception as e: pass
 
+    ''' function update_foreign_robot: updates the pose of each foreign robot, fusing the last accurate positions
+        reported by the cameras with the robot pose (w.r.t current robot origin) reported by the client
+    '''
     def update_foreign_robot(self):
         for key, value in self.transforms.items():
             try:
@@ -234,6 +253,7 @@ class ListenerThread(Thread):
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, True) #enables server restart
         self.socket.bind(("", self.port))
         self.threads = []
+        #listen for connections and start client handlers
         for i in range(50):
             self.socket.listen(5)
             c, addr = self.socket.accept()
@@ -271,6 +291,7 @@ class ClientHandlerThread(Thread):
             # append 'end' to end to mark end
             self.c.sendall(pickle.dumps([self.perched.local_cameras,self.to_send])+b'end')
             sleep(0.1)
+
             # hack to recieve variable size data without crashing
             data = b''
             while True:
