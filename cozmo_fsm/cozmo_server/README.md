@@ -30,3 +30,8 @@ The fusion process also gets the landmarks from individual robots (lightcubes an
 * When a robot sees a wall it can get stuck in its current rotation. (It won't turn on the worldmap regardless of its pose in the real world)
 * The transformation between the origin and robots is unreliable and robots can block the view of cameras. This can potentially be solved or alleviated by elevating the origin marker.
 * On the client, pickle causes an import issue when cozmo_server is not in the python_path. This is solved by adding cozmo_server to path or running simple_cli from within the cozmo_fsm folder.
+* In the current setup in REL the blue camera (the one with cyan tape on) can be poorly calibrated and significantly less accurate than the pink camera.
+* Clients crash on server exit
+## Notes
+* Having more than one camera adds to constant visibility but does not increase stability due to the lack of a functioning particle filter.
+* Due to the placement of aruco markers on the robots (off angle and center) the perceived robot coordinates are often different than the real ones.
