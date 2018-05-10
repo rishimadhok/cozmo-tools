@@ -288,6 +288,8 @@ class ClientHandlerThread(Thread):
                 elif isinstance(key,str):
                     # Send walls and cameras
                     self.to_send[key] = value         # Fix case when object removed from shared map
+                else:
+                    print(str(type(key)))
             # append 'end' to end to mark end
             self.c.sendall(pickle.dumps([self.perched.local_cameras,self.to_send])+b'end')
             sleep(0.1)
@@ -307,3 +309,4 @@ class ClientHandlerThread(Thread):
             self.server.camera_landmark_pool[self.aruco_id].update(landmarks)
             self.server.poses[self.aruco_id] = pose
             self.server.foreign_objects[self.aruco_id] = foreign_objects
+            print(self.server.foreign_objects)
