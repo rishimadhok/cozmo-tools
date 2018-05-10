@@ -233,6 +233,8 @@ class ClientThread(threading.Thread):
                 elif isinstance(key,str) and 'Wall' in key:
                     # Send walls
                     self.to_send[key] = value         # Fix case when object removed from shared map
+                elif isinstance(key,str) and 'Message' in key:
+                    self.to_send[key] = value
                 else:
                     pass    
 
