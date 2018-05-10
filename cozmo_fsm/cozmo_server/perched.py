@@ -11,6 +11,7 @@ from .transform import wrap_angle, rotationMatrixToEulerAngles
 microsoft_HD_webcam_cameraMatrix = matrix([[1148.00,       -3,    641.0],
                                [0.000000,   1145.0,    371.0],
                                [0.000000, 0.000000, 1.000000]])
+
 microsoft_HD_webcam_distCoeffs = array([0.211679, -0.179776, 0.041896, 0.040334, 0.000000])
 
 class Cam():

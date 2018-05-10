@@ -131,7 +131,7 @@ class FusionThread(threading.Thread):
                     self.transforms[key] = (x_t, y_t, theta_t, value[1])
             self.update_foreign_robot()
             self.update_foreign_objects()
-            sleep(0.01)
+            sleep(0.1)
 
     def update_foreign_robot(self):
         for key, value in self.transforms.items():

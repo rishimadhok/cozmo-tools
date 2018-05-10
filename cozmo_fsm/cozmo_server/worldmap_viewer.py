@@ -463,6 +463,7 @@ class WorldMapViewer():
         glPushMatrix()
         glTranslatef(*pos)
         glRotatef(marker.theta*180/pi, 0., 0., 1.)
+        glRotatef(marker.alpha*180/pi, 0., 1., 0.)
         highlight = marker.is_visible
         marker_thickness = 5 # must be thicker than wall
         self.make_cube((marker_thickness,s,s), color=color, highlight=highlight)
@@ -782,7 +783,7 @@ class WorldMapViewer():
                     self.make_light_cube(key,obj)
                 elif isinstance(obj, worldmap.CustomCubeObj):
                     self.make_custom_cube(key,obj)
-                elif isinstance(obj, worldmap.WallObj):
+                elif isinstance(obj, worldmap.WallObj) or 'cozmo_fsm.worldmap.WallObj' in str(type(obj)):
                     self.make_wall(obj)
                 elif isinstance(obj, worldmap.DoorwayObj):
                     self.make_doorway(obj)
@@ -794,12 +795,14 @@ class WorldMapViewer():
                     self.make_camera(obj)
                 elif isinstance(obj, worldmap.RobotForeignObj):
                     self.make_foreign_robot(obj)
-                elif isinstance(obj, worldmap.LightCubeForeignObj):
+                elif isinstance(obj, worldmap.LightCubeForeignObj) or 'cozmo_fsm.worldmap.LightCubeForeignObj' in str(type(obj)):
                     self.make_foreign_cube(obj)
                 elif isinstance(obj, worldmap.CustomMarkerObj):
                     self.make_custom_marker(obj)
                 elif isinstance(obj, worldmap.ArucoMarkerObj):
                     self.make_aruco_marker(obj)
+                else:
+                    print(str(type(obj)))
 
     def make_memory(self):
         global gl_lists
@@ -859,7 +862,7 @@ class WorldMapViewer():
     def window_creator(self):
         global WINDOW
         WINDOW = opengl.create_window(bytes(self.windowName,'utf-8'), (self.width,self.height))        
-        #glutDisplayFunc(self.display)
+        glutDisplayFunc(self.display)
         glutReshapeFunc(self.reshape)
         glutKeyboardFunc(self.keyPressed)
         glutSpecialFunc(self.specialKeyPressed)

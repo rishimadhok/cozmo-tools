@@ -1,5 +1,6 @@
 from . import transform
 from . import opengl
+from . import wall_defs 
 
 from .transform import *
 from .perched import *

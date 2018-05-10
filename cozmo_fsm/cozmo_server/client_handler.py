@@ -1,5 +1,6 @@
 from threading import Thread
 from time import sleep
+from copy import deepcopy
 
 import socket
 import pickle
@@ -20,7 +21,7 @@ class fakeParticleFilter():
         # variance of camera location (cylindrical coordinates)
         # phi is the angle around the Z axis of the robot
         # theta is the angle around the X axis of the camera (pitch)
-        camera_sensor_variance_Qt = np.array([[self.sigma_r**2 , 0                  , 0               ,0                , 0],
+        self.camera_sensor_variance_Qt = np.array([[self.sigma_r**2 , 0                  , 0               ,0                , 0],
                                               [0               , self.sigma_alpha**2, 0               ,0                , 0],
                                               [0               , 0                  , self.sigma_z**2 ,0                , 0],
                                               [0               , 0                  , 0               ,self.sigma_phi**2, 0],
@@ -46,17 +47,24 @@ class fakeParticleFilter():
 
 
 class Server():
-    def __init__(self, worldmap, port=1800, perched_thread=None):
+    def __init__(self, worldmap, port=1800, perched_thread=None, aruco_offset=0):
+        #Worldmap (must have origin_id set)
         self.world_map = worldmap
+
+        #Rotation of the origin aruco marker (0 by default)
+        self.aruco_offset_angle = aruco_offset
+
+
         self.camera_landmark_pool = {}
         self.poses = {}
         self.foreign_objects = {}
+
         self.perched_thread = perched_thread
         self.listener = ListenerThread(worldmap,port,perched_thread,self)
         self.listener.start()
+        self.particle = fakeParticleFilter()
         self.fusion = FusionThread(self)
         self.fusion.start()
-        self.particle = fakeParticleFilter()
 class FusionThread(Thread):
     def __init__(self, server):
         super().__init__()
@@ -65,38 +73,50 @@ class FusionThread(Thread):
         self.accurate = {}
         self.transforms = {}
 
+    ''' function find_accurate:
+        iterates through self.server.camera_landmark_pool to find which of the landmark locations
+        perceived by the cameras are more accurate and updates self.accurate
+        returns whether or not self.accurate is updated
+    '''
     def find_accurate(self):
         flag = False
-        for key1, value1 in self.server.camera_landmark_pool.items():
-            for key2, value2 in self.server.camera_landmark_pool.items():
-                if key1 == key2:
+        for aruco_id1, camera_pool1 in self.server.camera_landmark_pool.items():
+            for aruco_id2, camera_pool2 in self.server.camera_landmark_pool.items():
+                if aruco_id1 == aruco_id2:
                     continue
-                for cap, lan in value1.items():
-                    if cap in value2:
-                        varsum = lan[2].sum()+value2[cap][2].sum()
-                        if varsum < self.accurate.get((key1,key2),(inf,None))[0]:
-                            self.accurate[(key1,key2)] = (varsum,cap)
+                for camera, landmark in camera_pool1.items(): #how each camera sees aruco_id1
+                    if camera in camera_pool2: #if the same camera sees aruco_id2
+                        varsum = landmark[2].sum()+camera_pool2[camera][2].sum() #total error
+                        if varsum < self.accurate.get((aruco_id1,aruco_id2),(inf,None))[0]: #if error improves with this camera
+                            self.accurate[(aruco_id1,aruco_id2)] = (varsum,camera) #update camera, error/accuracy
                             flag = True
         return flag
 
+    ''' function find_transforms:
+        finds the transformations from origin to landmark location, updating
+        self.transforms with the locations of landmarks.
+    '''
     def find_transforms(self):
-        print("FINDING TRANSFORMS")
-        for key, value in self.accurate.items():
-            x1,y1 = self.server.camera_landmark_pool[key[0]][value[1]][0]
-            h1,p1,t1 = self.server.camera_landmark_pool[key[0]][value[1]][1]
-            x2,y2 = self.server.camera_landmark_pool[key[1]][value[1]][0]
-            h2,p2,t2 = self.server.camera_landmark_pool[key[0]][value[1]][1]
-            theta_t = wrap_angle(p1 - p2)
+        for (aruco_id1, aruco_id2), (varsum, camera) in self.accurate.items():
+            #landmark_pool[aruco_id][camera] is the aruco landmark with aruco_id as seen by camera
+            x1,y1 = self.server.camera_landmark_pool[aruco_id1][camera][0]
+            h1,p1,t1 = self.server.camera_landmark_pool[aruco_id1][camera][1]
+            x2,y2 = self.server.camera_landmark_pool[aruco_id2][camera][0]
+            h2,p2,t2 = self.server.camera_landmark_pool[aruco_id2][camera][1]
+
+            #theta is the change in angle between aruco and us (aruco is at an angle of pi/2)
+            theta_t = wrap_angle(p2 - p1 + self.server.aruco_offset_angle)
             x_t = x2 - (x1*cos(theta_t) + y1*sin(theta_t))
             y_t = y2 - (-x1*sin(theta_t) + y1*cos(theta_t))
-            self.transforms[key] = (x_t, y_t, theta_t, value[1])
+            self.transforms[(aruco_id1,aruco_id2)] = (x_t, y_t, theta_t, camera)
 
     def run(self):
         while(True):
             #adding local camera landmarks into camera_landmark_pool
-            #TODO: do this
             try:
+                #Iterate through all aruco_ids to find their set of rotation matrices
                 for aruco_id, rm in self.server.perched_thread.rotation_matrices.items():
+                    #for each camera that sees this aruco marker, get the rotation matrix
                     for camera, rotationm in rm.items():
                         #camera object w.r.t aruco_id
                         try:
@@ -105,6 +125,7 @@ class FusionThread(Thread):
                             y = cam.y
                             z = cam.z
 
+                            #Get rotation matrix & distances from camera to origin aruco frame
                             cam_origin = self.server.perched_thread.local_cameras[self.origin_id][camera]
                             rm_origin = self.server.perched_thread.rotation_matrices[self.origin_id][camera]
 
@@ -125,30 +146,77 @@ class FusionThread(Thread):
                             #Transformation matrix from robot frame to origin frame
                             H = H2 @ np.linalg.inv(H1)
 
+                            #Get euler angles from resulting rotation matrix
                             eu = rotationMatrixToEulerAngles(H[0:3,0:3])
+                            
+                            #pack everything into a landmark
                             lm_mu = np.array([[H[0,3]],[H[1,3]]])
-                            lm_height = (0, eu[0], eu[2])
-                            lm_sigma = np.eye(5)
+                            lm_height = (0, eu[2], eu[0])
+                            lm_sigma = self.server.particle.camera_sensor_variance_Qt
+
                             self.server.camera_landmark_pool[aruco_id] = {camera: (lm_mu, lm_height, lm_sigma)}
 
                         except Exception as e: pass
-            except Exception as e: print("Exception adding landmarks: "+repr(e))
+            except Exception as e: pass
             try:
                 if self.find_accurate(): self.find_transforms()
+            except Exception as e: print(repr(e))
+            try:
                 self.update_foreign_robot()
-            except Exception as e: print("Exception updating: "+repr(e))
-            sleep(0.1)
+                self.update_foreign_objects()
+            except Exception as e: print(repr(e))
+            sleep(0.02)
+
+    def update_foreign_objects(self):
+        for key, value in self.transforms.items(): 
+            try:
+                if key[1] == self.origin_id:
+                    x_t, y_t, theta_t, cap = value
+                    for k, v in self.server.foreign_objects[key[0]].items():
+                        x2 =  v.x*cos(theta_t) + v.y*sin(theta_t) + x_t
+                        y2 = -v.x*sin(theta_t) + v.y*cos(theta_t) + y_t
+                        if isinstance(k,str) and "Wall" in k:
+                            # update wall
+                            if k in self.server.world_map.objects:
+                                if self.server.world_map.objects[k].is_foreign:
+                                    self.server.world_map.objects[k].update(x=x2, y=y2, theta=wrap_angle(v.theta-theta_t))
+                            else:
+                                copy_obj = deepcopy(v)
+                                copy_obj.x = x2
+                                copy_obj.y = y2
+                                copy_obj.theta = wrap_angle(v.theta-theta_t)
+                                copy_obj.is_foreign = True
+                                self.server.world_map.objects[k]=copy_obj
+                        elif isinstance(k,str) and "Cube" in k:
+                            # update cube
+                            if k in self.server.world_map.objects:
+                                if self.server.world_map.objects[k].is_foreign:
+                                    self.server.world_map.objects[k].update(x=x2, y=y2, theta=wrap_angle(v.theta-theta_t))
+                            else:
+                                copy_obj = deepcopy(v)
+                                copy_obj.x = x2
+                                copy_obj.y = y2
+                                copy_obj.theta = wrap_angle(v.theta-theta_t)
+                                copy_obj.is_foreign = True
+                                self.server.world_map.objects[k]=copy_obj
+            except Exception as e: pass
 
     def update_foreign_robot(self):
         for key, value in self.transforms.items():
-            if key[1] == self.origin_id:
-                x_t, y_t, theta_t, cap = value
-                x, y, theta = self.server.poses[key[0]]
-                x2 =  x*cos(theta_t) + y*sin(theta_t) + x_t
-                y2 = -x*sin(theta_t) + y*cos(theta_t) + y_t
-                # improve using update function instead of new obj everytime
-                self.server.world_map.objects["Foreign-"+str(key[0])]=RobotForeignObj(cozmo_id=key[0],
-                                     x=x2, y=y2, z=0, theta=wrap_angle(theta-theta_t), camera_id = int(cap[-2]))
+            try:
+                if key[1] == self.origin_id:
+                    x_t, y_t, theta_t, cap = value
+                    x, y, theta = self.server.poses[key[0]]
+                    x2 =  x*cos(theta_t) + y*sin(theta_t) + x_t
+                    y2 = -x*sin(theta_t) + y*cos(theta_t) + y_t
+                    # improve using update function instead of new obj everytime
+                    self.server.world_map.objects["Foreign-"+str(key[0])]=RobotForeignObj(cozmo_id=key[0],
+                                         x=x2, y=y2, z=0, theta=wrap_angle(theta-theta_t), camera_id = int(cap[-2]))
+            except Exception as e: pass
+
+''' class ListenerThread: listens on the specified port (1800 by default) and creates and runs new 
+    ClientHandlerThreads for each new connection.
+'''
 class ListenerThread(Thread):
     def __init__(self, worldmap, port=1800, perched=None, server=None):
         super().__init__()
@@ -173,6 +241,8 @@ class ListenerThread(Thread):
             self.threads.append(ClientHandlerThread(i, c, self.perched, self.world_map, self.server))
             self.threads[i].start()
 
+''' ClientHandlerThread: gets data from clients to store on server and sends the latest data back
+'''
 class ClientHandlerThread(Thread):
     def __init__(self, thread_id, client, perched, world_map, server):
         super().__init__()
@@ -208,13 +278,11 @@ class ClientHandlerThread(Thread):
                 if data[-3:]==b'end':
                     break
             cams, landmarks, foreign_objects, pose = pickle.loads(data[:-3])
-            '''
             for key, value in cams.items():
-                if key in self.robo.world.perched.camera_pool:
+                if key in self.robo.server.perched_thread.camera_pool:
                     self.world_map.perched.camera_pool[key].update(value)
                 else:
                     self.world_map.perched.camera_pool[key]=value
-            '''
             self.server.camera_landmark_pool[self.aruco_id].update(landmarks)
             self.server.poses[self.aruco_id] = pose
             self.server.foreign_objects[self.aruco_id] = foreign_objects

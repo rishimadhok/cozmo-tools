@@ -101,13 +101,15 @@ class CustomCubeObj(WorldObject):
                (self.sdk_obj.object_type, self.x, self.y, self.z, self.theta*180/pi, vis)
 
 class ArucoMarkerObj(WorldObject):
-    def __init__(self, aruco_parent, id=None, x=0, y=0, z=0, theta=0):
+    def __init__(self, aruco_parent, id=None, x=0, y=0, z=0, theta=0, alpha=0):
         super().__init__(id,x,y,z)
         self.aruco_parent = aruco_parent
         self.theta = theta
+        self.alpha = alpha
 
     @property
     def is_visible(self):
+        if not self.aruco_parent: return True
         return self.id in self.aruco_parent.seen_marker_ids
 
     def __repr__(self):
