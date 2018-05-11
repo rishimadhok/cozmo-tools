@@ -184,6 +184,7 @@ class FusionThread(Thread):
         and ultimately w.r.t world frame, using robot pose relative to origin and object pose relative to robot.
     '''
     def update_foreign_objects(self):
+
         for key, value in self.transforms.items(): 
             try:
                 if key[1] == self.origin_id:
@@ -207,7 +208,7 @@ class FusionThread(Thread):
                             # update cube
                             if k in self.server.world_map.objects:
                                 if self.server.world_map.objects[k].is_foreign:
-                                    self.server.world_map.objects[k].update(x=x2, y=y2, theta=wrap_angle(v.theta-theta_t))
+                                    self.server.world_map.objects[k].update(x=x2, y=y2, theta=wrap_angle(v.theta-theta_t), is_visible=k.is_visible)
                             else:
                                 copy_obj = deepcopy(v)
                                 copy_obj.x = x2
@@ -288,8 +289,10 @@ class ClientHandlerThread(Thread):
                 elif isinstance(key,str):
                     # Send walls and cameras
                     self.to_send[key] = value         # Fix case when object removed from shared map
-                else:
-                    print(str(type(key)))
+            for _, value in self.server.foreign_objects.items():
+                for k,v in value.items():
+                    if isinstance(k,str) and 'Message' in k:
+                        self.to_send[k] = v
             # append 'end' to end to mark end
             self.c.sendall(pickle.dumps([self.perched.local_cameras,self.to_send])+b'end')
             sleep(0.1)
@@ -309,4 +312,3 @@ class ClientHandlerThread(Thread):
             self.server.camera_landmark_pool[self.aruco_id].update(landmarks)
             self.server.poses[self.aruco_id] = pose
             self.server.foreign_objects[self.aruco_id] = foreign_objects
-            print(self.server.foreign_objects)

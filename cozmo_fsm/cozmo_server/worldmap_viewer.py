@@ -488,7 +488,7 @@ class WorldMapViewer():
         glTranslatef(*pos)
         # Transpose the matrix for sending to OpenCV
         s = light_cube_size_mm
-        self.make_cube((s,s,s), color=color)
+        self.make_cube((s,s,s), highlight=cube_obst.is_visible, color=color)
         glRotatef(-90, 0., 0., 1.)
         glTranslatef(-s/4, -s/4, s/2+0.5)
         glScalef(0.25, 0.2, 0.25)
