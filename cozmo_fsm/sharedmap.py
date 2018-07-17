@@ -1,4 +1,4 @@
-import cv2
+# import cv2
 import socket
 import pickle
 import threading
@@ -199,12 +199,14 @@ class ClientThread(threading.Thread):
                 print("Attempting to connect to %s at port %d" % (ipaddr,port))
                 self.socket.connect((ipaddr,port))
                 data = pickle.loads(self.socket.recv(1024))
+                print("Data received from Server(upper loop): ", data)
                 break
             except:
                 print("No server found, make sure the address is correct, retrying in 10 seconds")
                 sleep(10)
         print("Connected.")
         self.socket.sendall(pickle.dumps(self.robot.aruco_id))
+        print("Sending data to server: ", self.robot.aruco_id)
         self.robot.world.is_server = False
         self.start()
 
@@ -225,17 +227,23 @@ class ClientThread(threading.Thread):
                 data += self.socket.recv(1024)
                 if data[-3:]==b'end':
                     break
+            print("Data received from Server(upper loop): ", pickle.loads(data))
             self.robot.world.perched.camera_pool, self.robot.world.world_map.shared_objects = pickle.loads(data[:-3])
 
             for key, value in self.robot.world.world_map.objects.items():
                 if isinstance(key,LightCube):
-                    self.to_send["LightCubeForeignObj-"+str(value.id)]= LightCubeForeignObj(id=value.id, cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
+                    print("Sending Lighcube from client to server")
+                    self.to_send["LightCubeForeignObj-"+str(value.id)+"-"+str(self.robot.aruco_id)]= LightCubeForeignObj(id=value.id, cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
+                    # self.to_send["LightCubeForeignObj-"+str(value.id)]= LightCubeForeignObj(id=value.id, cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
                 elif isinstance(key,str) and 'Wall' in key:
                     # Send walls
+                    # print("Sending Wall from client to server")
                     self.to_send[key] = value         # Fix case when object removed from shared map
                 elif isinstance(key,str) and 'Message' in key:
+                    # print("Sending Message from client to server")
                     self.to_send[key] = value
                 else:
+                    # print("Sending Nothing from client to server")
                     pass    
 
             # send cameras, landmarks, objects and pose
@@ -245,3 +253,5 @@ class ClientThread(threading.Thread):
                 if isinstance(x,str) and "Video" in x]},
                 self.to_send,
                 self.robot.world.particle_filter.pose])+b'end')
+
+            print("Sending client stuff", self.to_send)
