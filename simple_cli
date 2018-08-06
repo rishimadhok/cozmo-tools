@@ -224,15 +224,23 @@ def start_stuff(args):
             print('Usage: start client IP_address')
             return
         robot.world.client.start_client_thread(args[1])
+        # print('Now blinking lights')
+        # robot.world.client.blink_lights()
+        # print("Blinking finished!")
     elif spec == 'shared_map':
         robot.world.client.use_shared_map()
         print('Now using shared map.')
+    elif spec == 'blink':
+        print('Now blinking lights')
+        robot.world.client.blink_lights()
+        print("Blinking finished!")
     else:
         print("""Usage:
   start perched
   start server
   start client [IP_Address]
   start shared_map
+  start blink
 """)
 
 def sort_wmobject_ids(ids):

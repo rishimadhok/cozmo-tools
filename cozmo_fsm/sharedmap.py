@@ -7,7 +7,10 @@ from numpy import inf, arctan2, pi, cos, sin
 from .worldmap import RobotForeignObj, LightCubeForeignObj, WallObj
 from .transform import wrap_angle
 from cozmo.objects import LightCube
+from cozmo.objects import LightCube1Id, LightCube2Id, LightCube3Id
 from copy import deepcopy
+import time
+import cozmo
 
 class ServerThread(threading.Thread):
     def __init__(self, robot, port=1800):
@@ -205,8 +208,13 @@ class ClientThread(threading.Thread):
                 print("No server found, make sure the address is correct, retrying in 10 seconds")
                 sleep(10)
         print("Connected.")
+
+        print('Now blinking lights')
+        self.blink_lights()
+        print("Blinking finished!")
+
         self.socket.sendall(pickle.dumps(self.robot.aruco_id))
-        print("Sending data to server: ", self.robot.aruco_id)
+        # print("Sending data to server: ", self.robot.aruco_id)
         self.robot.world.is_server = False
         self.start()
 
@@ -214,6 +222,58 @@ class ClientThread(threading.Thread):
         # currently affects only worldmap_viewer
         # uses robot.world.world_map.shared_objects instead of robot.world.world_map.objects
         self.robot.use_shared_map = True
+
+    def blink_lights(self):
+
+        timeout = time.time() + 10
+        # print("Time now: ", time.time())
+        # print("Timeout:", timeout)
+
+        cube1 = self.robot.world.get_light_cube(LightCube1Id)  # looks like a paperclip
+        cube2 = self.robot.world.get_light_cube(LightCube2Id)  # looks like a lamp / heart
+        cube3 = self.robot.world.get_light_cube(LightCube3Id)  # looks like the letters 'ab' over 'T'
+
+        if cube1 is not None:
+        # cube1.set_lights(cozmo.lights.red_light)
+            cube1.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(255,0,0)), off_color=cozmo.lights.Color(rgb=(255,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+        else:
+            cozmo.logger.warning("Cozmo is not connected to a LightCube1Id cube - check the battery.")
+
+        if cube2 is not None:
+            cube2.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(255,0,0)), off_color=cozmo.lights.Color(rgb=(255,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+        else:
+            cozmo.logger.warning("Cozmo is not connected to a LightCube2Id cube - check the battery.")
+
+        if cube3 is not None:
+            cube3.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(255,0,0)), off_color=cozmo.lights.Color(rgb=(255,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+        else:
+            cozmo.logger.warning("Cozmo is not connected to a LightCube3Id cube - check the battery.")
+
+        # Keep the lights on for 10 seconds until the program exits
+        while(True):
+            stop = 0
+            if time.time() > timeout:
+                stop = 1
+                # print("True")
+                if cube1 is not None:
+                # cube1.set_lights(cozmo.lights.red_light)
+                    cube1.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(0,0,0)), off_color=cozmo.lights.Color(rgb=(0,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+                else:
+                    cozmo.logger.warning("Cozmo is not connected to a LightCube1Id cube - check the battery.")
+
+                if cube2 is not None:
+                    cube2.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(0,0,0)), off_color=cozmo.lights.Color(rgb=(0,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+                else:
+                    cozmo.logger.warning("Cozmo is not connected to a LightCube2Id cube - check the battery.")
+
+                if cube3 is not None:
+                    cube3.set_lights(cozmo.lights.Light(on_color=cozmo.lights.Color(rgb=(0,0,0)), off_color=cozmo.lights.Color(rgb=(0,0,0)), on_period_ms=250, off_period_ms=250, transition_on_period_ms=0, transition_off_period_ms=0))
+                else:
+                    cozmo.logger.warning("Cozmo is not connected to a LightCube3Id cube - check the battery.")
+
+            if stop == 1:
+                break
+        
 
     def use_local_map(self):
         self.robot.use_shared_map = False
@@ -227,18 +287,35 @@ class ClientThread(threading.Thread):
                 data += self.socket.recv(1024)
                 if data[-3:]==b'end':
                     break
-            print("Data received from Server(upper loop): ", pickle.loads(data))
+            # print("Data received from Server(upper loop): ", pickle.loads(data))
             self.robot.world.perched.camera_pool, self.robot.world.world_map.shared_objects = pickle.loads(data[:-3])
 
+            # print("Data received from Server (robot.world.perched.camera_pool): ", self.robot.world.perched.camera_pool)
+            # print("Data received from Server (robot.world.world_map.shared_objects): ", self.robot.world.world_map.shared_objects)
+
             for key, value in self.robot.world.world_map.objects.items():
-                if isinstance(key,LightCube):
-                    print("Sending Lighcube from client to server")
-                    self.to_send["LightCubeForeignObj-"+str(value.id)+"-"+str(self.robot.aruco_id)]= LightCubeForeignObj(id=value.id, cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
+                # print("Key: ",key)
+                # print("type of Value: ",type(value))
+                # print("Value: ",value)
+                # print("value.id: ",value.id)
+                # print("value.x: ",value.x)
+                # print("value.y: ",value.y)
+                # print("value.z: ",value.z)
+                # print("value.theta: ",value.theta)
+                # print("self.robot.aruco_id: ",self.robot.aruco_id)
+                # if isinstance(key,Lighcube):
+                if isinstance(key,str) and 'Cube' in key:
+                    # print("Sending Lighcube from client to server")
+                    temp_lightcube = LightCubeForeignObj(id=int(value.id[-1]), cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
+                    # print("temp_lightcube", temp_lightcube)
+                    self.to_send["RedLightCubeForeignObj-"+str(value.id)+"-"+str(self.robot.aruco_id)]= temp_lightcube
+                    # print("To_send at this moment ",self.to_send)
                     # self.to_send["LightCubeForeignObj-"+str(value.id)]= LightCubeForeignObj(id=value.id, cozmo_id=self.robot.aruco_id, x=value.x, y=value.y, z=value.z, theta=value.theta)
                 elif isinstance(key,str) and 'Wall' in key:
                     # Send walls
                     # print("Sending Wall from client to server")
-                    self.to_send[key] = value         # Fix case when object removed from shared map
+                    temp_wall = WallObj(id=int(value.id[-2:]), x=value.x, y=value.y, theta=value.theta, length = value.length)
+                    self.to_send[key] = temp_wall         # Fix case when object removed from shared map
                 elif isinstance(key,str) and 'Message' in key:
                     # print("Sending Message from client to server")
                     self.to_send[key] = value
@@ -254,4 +331,4 @@ class ClientThread(threading.Thread):
                 self.to_send,
                 self.robot.world.particle_filter.pose])+b'end')
 
-            print("Sending client stuff", self.to_send)
+            # print("Sending client stuff", self.to_send)

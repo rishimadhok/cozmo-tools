@@ -96,10 +96,10 @@ cube_colors_2 = array.array('f', \
 
 color_black  = (0., 0., 0.)
 color_white  = (1., 1., 1.)
-color_red    = (1., 0., 0.)
-color_green  = (0., 1., 0.)
+color_red    = (1., 0., 0.) # cube 1
+color_green  = (0., 1., 0.) # cube 2
 color_light_green  = (0., 0.5, 0.)
-color_blue   = (0., 0., 1.0)
+color_blue   = (0., 0., 1.0) # cube 3
 color_cyan   = (0., 1.0, 1.0)
 color_yellow = (0.8, 0.8, 0.)
 color_orange = (1., 0.5, .063)
@@ -484,11 +484,21 @@ class WorldMapViewer():
         glEndList()
         gl_lists.append(c)
 
-    def make_foreign_cube(self,cube_obj):
+    def make_foreign_cube(self,cube_obj, cubeid=0, foreign=True):
         global gl_lists
         cube_number = cube_obj.id
         pos = (cube_obj.x, cube_obj.y, cube_obj.z)
-        color = color_white
+
+        if foreign == True:
+            color = color_white
+        else:
+            if cubeid == 1:
+                color = color_red
+            elif cubeid == 2:
+                color = color_green
+            else:
+                color = color_blue
+
         c = glGenLists(1)
         glNewList(c, GL_COMPILE)
         glPushMatrix()
@@ -581,7 +591,7 @@ class WorldMapViewer():
         glEndList()
         gl_lists.append(c)
 
-    def make_foreign_robot(self,obj):
+    def make_foreign_robot(self,obj,foreign=True):
         global gl_lists
         c = glGenLists(1)
         glNewList(c, GL_COMPILE)
@@ -593,13 +603,22 @@ class WorldMapViewer():
         glTranslatef(*p)
         glTranslatef(*robot_body_offset_mm)
         glRotatef(obj.theta*180/pi, 0, 0, 1)
-        self.make_cube(robot_body_size_mm, color=color_white)
+
+        if foreign == True:
+            self.make_cube(robot_body_size_mm, color=color_white)
+        else:
+            self.make_cube(robot_body_size_mm)
 
         # Draw the head
         glPushMatrix()
         glTranslatef(*robot_head_offset_mm)
         glRotatef(-self.robot.head_angle.degrees, 0, 1, 0)
-        self.make_cube(robot_head_size_mm, color=color_white)
+
+        if foreign == True:
+            self.make_cube(robot_head_size_mm, color=color_white)
+        else:
+            self.make_cube(robot_head_size_mm)
+        
         glTranslatef(*( 0,  0,   36))
         glScalef(0.25, 0.2, 0.25)
         glutStrokeCharacter(GLUT_STROKE_MONO_ROMAN, ord(ascii(obj.cozmo_id%9)))
@@ -613,7 +632,12 @@ class WorldMapViewer():
         lift_pt = transform.point(0, 0, 0)
         lift_point = self.tran_to_tuple(lift_tran.dot(lift_pt))
         glTranslatef(*lift_point)
-        self.make_cube(lift_size_mm, color=color)
+
+        if foreign == True:
+            self.make_cube(lift_size_mm, color=color)
+        else:
+            self.make_cube(lift_size_mm, color=color)
+        
         glPopMatrix()
 
         # Draw the lift arms
@@ -634,9 +658,20 @@ class WorldMapViewer():
 
         glTranslatef(*arm_point)
         glRotatef(-(180 * arm_angle / pi), 0, 1, 0)
-        self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm), color=color_white)
+
+        if foreign == True:
+            self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm), color=color_white)
+        else:
+            self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm))
+
+        
         glTranslatef(0, lift_arm_spacing_mm, 0)
-        self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm), color=color_white)
+
+        if foreign == True:
+            self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm), color=color_white)
+        else:
+            self.make_cube((lift_arm_len_mm, lift_arm_diam_mm, lift_arm_diam_mm))
+        
         glPopMatrix()
 
         glPopMatrix()
@@ -746,8 +781,10 @@ class WorldMapViewer():
     def make_objects(self):
         if self.robot.use_shared_map:
             items = tuple(self.robot.world.world_map.shared_objects.items())
+            # print("shared_objects", items)
         else:
             items = tuple(self.robot.world.world_map.objects.items())
+            # print("worldmap_objects", items)
         for (key,obj) in items:
             if isinstance(obj, worldmap.LightCubeObj):
                 self.make_light_cube(obj)
@@ -761,12 +798,26 @@ class WorldMapViewer():
                 self.make_chip(obj)
             elif isinstance(obj, worldmap.FaceObj):
                 self.make_face(obj)
-            elif isinstance(obj, worldmap.CameraObj):
+            # elif isinstance(obj, worldmap.CameraObj):
+            elif isinstance(key,str) and 'Video' in key:
                 self.make_camera(obj)
-            elif isinstance(obj, worldmap.RobotForeignObj):
-                self.make_foreign_robot(obj)
-            elif isinstance(obj, worldmap.LightCubeForeignObj):
-                self.make_foreign_cube(obj)
+            # elif isinstance(obj, worldmap.RobotForeignObj):
+            elif isinstance(key,str) and 'Foreign-' in key:
+                if int(str(key[-2:])) == 91:
+                    self.make_foreign_robot(obj, foreign = False)
+                else:
+                    self.make_foreign_robot(obj, foreign = True)
+            # elif isinstance(obj, worldmap.LightCubeForeignObj):
+            elif isinstance(key,str) and 'LightCubeForeignObj' in key:
+                # print(str(key[-4]))
+                if int(str(key[-4])) == 1 and int(str(key[-2:])) == 91:
+                    self.make_foreign_cube(obj, cubeid = 1, foreign = False)
+                elif int(str(key[-4])) == 2 and int(str(key[-2:])) == 91:
+                    self.make_foreign_cube(obj, cubeid = 2, foreign = False)
+                elif int(str(key[-4])) == 3 and int(str(key[-2:])) == 91:
+                    self.make_foreign_cube(obj, cubeid = 3, foreign = False)
+                else:
+                    self.make_foreign_cube(obj, cubeid = 0, foreign = True)
             elif isinstance(obj, worldmap.CustomMarkerObj):
                 self.make_custom_marker(obj)
             elif isinstance(obj, worldmap.ArucoMarkerObj):
@@ -814,8 +865,14 @@ class WorldMapViewer():
         self.make_axes()
         self.make_gazepoint()
         self.make_objects()  # walls, light cubes, custom cubes, and chips
-        self.make_charger()
-        self.make_cozmo_robot()
+        
+        if self.robot.use_shared_map:
+            # print(c"using shared objects")
+            pass
+        else:
+            # print("Not using shared objects")
+            self.make_charger()
+            self.make_cozmo_robot()
         self.make_memory()
         self.make_floor()
 
